@@ -1,4 +1,4 @@
-# RPN
+# RPN  (Reverse Polish Notation)
 用逆波兰表达式计算四则混合运算
 
 网上找到的一些算法，并不能很好地处理一些复杂的公式，比如“A-B*(A+B)*D-C”。
