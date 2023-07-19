@@ -1,9 +1,30 @@
-﻿<?php
+<?php
 /*
  * Reverse Polish Notation
  * 逆波兰表达式
  *
- * 将四则混合运算字符串转换成逆波兰序列，并计算出结果
+ * 将四则混合运算字符串转换成逆波兰序列，并计算出结果。
+ * 括号前如果有减法操作，那么，在括号（以及括号后面的乘除）结束后，就必须先计算这个减法。网上的那些算法，都没有这个判断。
+ *
+ *  
+测试样例：
+$test=Array(
+//字符串			逆波兰表达式					计算结果
+"1+2+3+4+5+6",			//1 2 + 3 + 4 + 5 + 6 + 			//21
+"1+2+(3+4)+5+6",		//1 2 + 3 4 + + + 5 + 6 +			//21
+"1+(2+3)+(4+5)+6",		//1 2 3 + + + 4 5 + + + 6 +			//21
+"1+2*3+4*5+6",			//1 2 3 * 4 5 * 6 + + +				//33
+"1+2+(3*4)+5+6",		//1 2 + 3 4 * + + 5 + 6 +			//26
+"1+2*3/4*5+6",			//1 2 3 * 4 / 5 * 6 + +				//14.5
+"1+2+(3*4)/5+6",		//1 2 + 3 4 * 5 / + 6 +				//11.4
+"1-2+(3*4)/5-6",		//1 2 - 3 4 * 5 / + 6 -				//-4.6
+"1-2-(3*4)/5-6",		//1 2 - 3 4 * 5 / - 6 -				//-9.4
+"1-(3*4)/5-6",			//1 3 4 * 5 / - 6 -				//-7
+"1-(2-3*(4-5))*3-4-4*4*4",	//1 2 3 4 5 - * - 3 * - 4 - 4 4 * 4 * -		//-82
+"1-(2-(4-5))*3*4-4",		//1 2 4 5 - - 3 * 4 * - 4 -			//-39
+"1-(2-(3*4)/2-3-4+5)/2-1+3-4",	//1 2 3 4 * 2 / - 3 - 4 - 5 + 2 / - 1 - 3 + 4 -	//2
+"1-(2-(3*4)/5-3-4+5)/7-1+3-4"	//1 2 3 4 * 5 / - 3 - 4 - 5 + 7 / - 1 - 3 + 4 -	//-0.65714285714286
+);
  *  
  */
 
@@ -48,12 +69,12 @@ class RPN {
       $len = count($this->_expression);				//字符串表达式已经转成了数组
       for($i = 0; $i < $len; $i++)				//遍历数组
       {
-/*
-echo "\nLOOP: ".$i. "\t ORDER:". count($this->_rpnexp)."\t LPC:\t".$nLeftParenthesesPointer."\n";
-echo "LP:\t";print_r($arrLeftParentheses);
-echo "STACK:\t";print_r($this->_stack);
-echo "RPN:\t";print_r($this->_rpnexp);
-*/
+
+//echo "\nLOOP: ".$i. "\t ORDER:". count($this->_rpnexp)."\t LPC:\t".$nLeftParenthesesPointer."\n";
+//echo "LP:\t";print_r($arrLeftParentheses);
+//echo "STACK:\t";print_r($this->_stack);
+//echo "RPN:\t";print_r($this->_rpnexp);
+
          $str = $this->_expression[$i];
          if ($str == '(')						//括号优先级最高，先检测是否有左括号出现
          {
@@ -86,16 +107,29 @@ echo "RPN:\t";print_r($this->_rpnexp);
             $this->_rpnexp[] = array_pop($this->_stack);			//这个操作，无论“+、-、*、/”，都要追加到结果数组中
             if($this->_priority[$str]==2)					//加减需要额外的操作，把括号对应的运算添加进来
             {
+
+//echo "TEST\n";
+//echo "LP:\t";print_r($arrLeftParentheses);
+//echo "STACK:\t";print_r($this->_stack);
+//echo "RPN:\t";print_r($this->_rpnexp);
+//echo "test2";
+//print_r($arrLeftParentheses);
+
                $arrLeftParentheses[$nLeftParenthesesPointer]=$str;			//保存当前操作符到对应的括号所对应的偏移地址
+
                if($bRightParentheses )							//如果右括号已经出现，就表示当前是括号结束后的第一个低优先级的运算（加或减）
                {
-                  $nLeftParenthesesPointer--;							//左括号计数器在这里减1
-                  if( isset($arrLeftParentheses[$nLeftParenthesesPointer-1]))			//如果当前左括号前存在+/-操作，就需要立即执行
+                  //						//左括号计数器在这里减1
+                  $nLeftParenthesesPointer--;
+                  if( isset($arrLeftParentheses[$nLeftParenthesesPointer]))			//如果当前左括号前存在+/-操作，就需要立即执行
                   {
-                     $this->_rpnexp[] = $arrLeftParentheses[$nLeftParenthesesPointer-1];		//将当前左括号前的最后一个+/-操作符放入结果数组中
+                     $this->_rpnexp[] = $arrLeftParentheses[$nLeftParenthesesPointer];		//将当前左括号前的最后一个+/-操作符放入结果数组中
                      array_pop($this->_stack);								//清一次堆栈顶部数据
+	
                   }
                   $bRightParentheses=false;							//右括号标志位归位
+
+
                }
             }
             $this->_stack[] = $str;						//将当前运算符压入堆栈
@@ -110,8 +144,26 @@ echo "RPN:\t";print_r($this->_rpnexp);
          }
       }
 
-      for($i = count($this->_stack); $i >= 0; $i--)			//倒序检测堆栈中是否有遗漏的操作
+      for($i = count($this->_stack); $i >= 0; $i--)			//检测堆栈中是否有遗漏的操作
       {
+         //echo "endend";
+         //print_r( $this->_rpnexp);
+         //print_r( $this->_stack);
+//echo $bRightParentheses."|".$nLeftParenthesesPointer;
+
+         if($bRightParentheses )							//如果右括号已经出现，就表示当前是括号结束后的第一个低优先级的运算（加或减）
+         {
+            if( isset($arrLeftParentheses[$nLeftParenthesesPointer]))			//如果当前左括号前存在+/-操作，就需要立即执行
+            {
+//echo "more";
+               $tmp=array_pop($this->_rpnexp);
+               $this->_rpnexp[] = $arrLeftParentheses[$nLeftParenthesesPointer];		//将当前左括号前的最后一个+/-操作符放入结果数组中
+               array_push($this->_rpnexp,$tmp);
+               array_pop($this->_stack);								//清一次堆栈顶部数据
+               $nLeftParenthesesPointer=0;
+               $bRightParentheses=false;							//右括号标志位归位
+            }
+         }
          if (end($this->_stack) == '#') break;					//检测到搭底部，结束
          $this->_rpnexp[] = array_pop($this->_stack);				//直接追加到结果数组
       }
@@ -128,36 +180,45 @@ echo "RPN:\t";print_r($this->_rpnexp);
       $bFormula	= FALSE;
       $data	= Array();						//用于保存运算所需要的数/变量
       $type	= Array('+','-','*','/');				//限定了只能处理这四种运算
+
       for($i=0;$i<count($this->_rpnexp);$i++)
       {
-         if(!in_array($this->_rpnexp[$i],$type))		//非计算符号，则认定为数字/变量
+         if(  $this->_rpnexp[$i]!=NULL)//数据莫名其妙地多了一个NULL，暂时屏蔽。
          {
-            if(!is_numeric($this->_rpnexp[$i])) $bFormula=TRUE;
-            array_unshift($data,intval($this->_rpnexp[$i]));	//将数据(数字/变量)插入到数组$data的开头
-         }
-         else							//处理“+,-,*,/”
-         {
-            $val1=array_shift($data);				//获取数组$data的第一个数据，并删除
-            $val2=array_shift($data);				//获取数组$data的第一个数据，并删除
-            switch($this->_rpnexp[$i])
+            if(!in_array($this->_rpnexp[$i],$type))		//非计算符号，则认定为数字/变量
             {
-               case '+':
-                  array_unshift($data,$val2+$val1);		//将计算结果保存到数组$data的开头
-                  break;
-               case '-':
-                  array_unshift($data,$val2-$val1);
-                  break;
-               case '*':
-                  array_unshift($data,$val2*$val1);
-                  break;
-               case '/':
-                  array_unshift($data,intval($val2/$val1));
-                  break;
-               //default:					//由于前面if里的in_array()已经过滤了非“+,-,*,/”的情况，
-               //   break;					//所以这里的default可以安心地去掉。
+               if(!is_numeric($this->_rpnexp[$i])) $bFormula=TRUE;
+
+               //array_unshift($data,intval($this->_rpnexp[$i]));	//将数据(数字/变量)插入到数组$data的开头
+               array_unshift($data,$this->_rpnexp[$i]);	//将数据(数字/变量)插入到数组$data的开头
+            }
+            else							//处理“+,-,*,/”
+            {
+               $val1=array_shift($data);				//获取数组$data的第一个数据，并删除
+               $val2=array_shift($data);				//获取数组$data的第一个数据，并删除
+               switch($this->_rpnexp[$i])
+               {
+                  case '+':
+                     array_unshift($data,$val2+$val1);		//将计算结果保存到数组$data的开头
+                     break;
+                  case '-':
+                     array_unshift($data,$val2-$val1);
+                     break;
+                  case '*':
+                     array_unshift($data,$val2*$val1);
+                     break;
+                  case '/':
+                     array_unshift($data,$val2/$val1);
+                     //array_unshift($data,intval($val2/$val1));
+                     break;
+                  //default:					//由于前面if里的in_array()已经过滤了非“+,-,*,/”的情况，
+                  //   break;					//所以这里的default可以安心地去掉。
+               }
             }
          }
       }
+
+      //var_dump($bFormula);
       return $this->nValue=$bFormula?FALSE:current($data);	//当输入里有无法计算的字母时，返回FALSE，否则返回计算后得到的数值。
    }
 
@@ -184,9 +245,6 @@ echo "RPN:\t";print_r($this->_rpnexp);
 
 //测试实例
 
-
-
-//13插入7前，22插入16前
 /*
 调整条件：
 1.括号前为减法；
@@ -194,17 +252,47 @@ echo "RPN:\t";print_r($this->_rpnexp);
 
 */
 
-/*
-"-1-(2-3*(4-5))*3*5-4-4*4*4"	=>1 - 2 3 4 5 - * - 3 * 5 * - 4 - 4 4 * 4 * -
-"-1-(2-3*(4-5))*3-4-4*4*4"	=>1 - 2 3 4 5 - * - 3 * - 4 - 4 4 * 4 * - 
-"1-(2-3*(4-5))*3-4-4*4*4"	=>  1 2 3 4 5 - * - 3 * - 4 - 4 4 * 4 * -   
-"1+(2-3*(4-5))*3-4-4*4*4" 	=>  1 2 3 4 5 - * - 3 * + 4 - 4 4 * 4 * -
 
-*/
+$test=Array(
+//字符串			逆波兰表达式					计算结果
+"1+2+3+4+5+6",			//1 2 + 3 + 4 + 5 + 6 + 			//21
+"1+2+(3+4)+5+6",		//1 2 + 3 4 + + + 5 + 6 +			//21
+"1+(2+3)+(4+5)+6",		//1 2 3 + + + 4 5 + + + 6 +			//21
+"1+2*3+4*5+6",			//1 2 3 * 4 5 * 6 + + +				//33
+"1+2+(3*4)+5+6",		//1 2 + 3 4 * + + 5 + 6 +			//26
+"1+2*3/4*5+6",			//1 2 3 * 4 / 5 * 6 + +				//14.5
+"1+2+(3*4)/5+6",		//1 2 + 3 4 * 5 / + 6 +				//11.4
+"1-2+(3*4)/5-6",		//1 2 - 3 4 * 5 / + 6 -				//-4.6
+"1-2-(3*4)/5-6",		//1 2 - 3 4 * 5 / - 6 -				//-9.4
+"1-(3*4)/5-6",			//1 3 4 * 5 / - 6 -				//-7
+"1-(2-3*(4-5))*3-4-4*4*4",	//1 2 3 4 5 - * - 3 * - 4 - 4 4 * 4 * -		//-82
+"1-(2-(4-5))*3*4-4",		//1 2 4 5 - - 3 * 4 * - 4 -			//-39
+"1-(2-(3*4)/2-3-4+5)/2-1+3-4",	//1 2 3 4 * 2 / - 3 - 4 - 5 + 2 / - 1 - 3 + 4 -	//2
+"1-(2-(3*4)/5-3-4+5)/7-1+3-4"	//1 2 3 4 * 5 / - 3 - 4 - 5 + 7 / - 1 - 3 + 4 -	//-0.65714285714286
+
+);
+
+$mathrpn = new RPN();
+
+for($i=0;$i<count($test);$i++)
+{
+   echo $test[$i]."=";
+   $result=$mathrpn->eval($test[$i]);
+   //var_dump($result);
+   if($result!==FALSE) echo $result."\n";
+   else echo "输入数据中含有不可计算的变量。请通过调用getStrRPN()或getArrRPN()查看。\n";
+
+   print_r( $mathrpn->getStrRPN() );
+   print_r( $mathrpn->getArrRPN() );
+   print_r( $mathrpn->getValueRPN());
+   echo "\n\n";
+}
+
+exit;
 
 $expression ="1-2*4--4";//1 - 2 3 4 5 - * - 3 * - 4 - 4 4 * 4 * - //"1-(2-3*(4-5))*3-4-4*4*4"=>1 2 3 4 5 - * - 3 * - 4 - 4 4 * 4 * -   //"1+(2-3*(4-5))*3-4-4*4*4" =>1 2 3 4 5 - * - 3 * + 4 - 4 4 * 4 * -
 echo $expression."=";
-$mathrpn = new RPN();
+
 
 $result=$mathrpn->eval($expression);
 //echo $result;
