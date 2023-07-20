@@ -110,6 +110,7 @@ class RPN {
          $str = $this->_expression[$i];
          if ($str == '(')						//括号优先级最高，先检测是否有左括号出现
          {
+            $nCheckParentheses++;						//遇到左括号，加1；遇到右括号，减1
             $this->_stack[] = $str;						//将左括号压入运算符号堆栈
             continue;								//立刻进入下一次循环
          } 
@@ -120,6 +121,7 @@ class RPN {
          }
          else if ($str == ')')						//右括号出现，表示有一个完整的括号结束了
          {
+            $nCheckParentheses--;						//遇到左括号，加1；遇到右括号，减1
             for($j = count($this->_stack); $j >= 0; $j--)			//倒序检测运算符堆栈，把这一对括号中的操作都输出
             {
                $tmp = array_pop($this->_stack);						//取出堆栈顶的数据
