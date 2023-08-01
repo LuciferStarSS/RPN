@@ -96,7 +96,7 @@ class RPN {
    //对已拆分数组进行逆波兰处理
    private function exp2RPN() 
    {
-      $nCheckParentheses=0;					//用于检测左右括号是否对应
+      $nCheckParenthesis=0;					//用于检测左右括号是否对应
       $len = count($this->_expression);				//字符串表达式已经转成了数组
       for($i = 0; $i < $len; $i++)				//遍历数组
       {
@@ -110,7 +110,7 @@ class RPN {
          $str = $this->_expression[$i];
          if ($str == '(')						//括号优先级最高，先检测是否有左括号出现
          {
-            $nCheckParentheses++;						//遇到左括号，加1；遇到右括号，减1
+            $nCheckParenthesis++;						//遇到左括号，加1；遇到右括号，减1
             $this->_stack[] = $str;						//将左括号压入运算符号堆栈
             continue;								//立刻进入下一次循环
          } 
@@ -121,7 +121,7 @@ class RPN {
          }
          else if ($str == ')')						//右括号出现，表示有一个完整的括号结束了
          {
-            $nCheckParentheses--;						//遇到左括号，加1；遇到右括号，减1
+            $nCheckParenthesis--;						//遇到左括号，加1；遇到右括号，减1
             for($j = count($this->_stack); $j >= 0; $j--)			//倒序检测运算符堆栈，把这一对括号中的操作都输出
             {
                $tmp = array_pop($this->_stack);						//取出堆栈顶的数据
@@ -163,7 +163,7 @@ class RPN {
          $this->_rpnexp[] = array_pop($this->_stack);				//直接追加到结果数组
       }
 
-      return ( $nCheckParentheses!=0 )?  FALSE:$this->_rpnexp;		//如果输入数据有误（比如括号不匹配，连续多个运算符叠加的情况暂时没有处理），就返回FALSE；否则返回包含逆波兰表达式数据的数组
+      return ( $nCheckParenthesis!=0 )?  FALSE:$this->_rpnexp;		//如果输入数据有误（比如括号不匹配，连续多个运算符叠加的情况暂时没有处理），就返回FALSE；否则返回包含逆波兰表达式数据的数组
    }
 
    //获取表达式的计算结果
