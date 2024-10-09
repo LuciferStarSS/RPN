@@ -61,7 +61,7 @@ $test=Array(
  */
 define( 'DEBUG', FALSE);						//调试用
 
-class RPN {
+class RPN_EXPRESSION {
    public  $strExpression = '';						//待计算的字符串表达式
    public  $strRPN	  = '';						//生成的逆波兰表达式
    public  $nValue	  = 0;						//表达式计算的结果
@@ -73,24 +73,82 @@ class RPN {
 				  '/' => 3, '+' =>2, '-' => 2);
    private $_operator 	  = Array('(', '+', '-', '*', '/', ')');	//四则混合运算中的操作符
 
+   private $soup = '!#%()*+,-./:;=?@[]^_`{|}~'.'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+
+
+   //Scratch3.0的20字符ID生成器
+   private function uid()
+   {
+      //global $soup;
+      $id = Array();
+      for ($i = 0; $i < 20; $i++) {
+         $id[$i] = $this->soup[mt_rand(0,86) ];		//87个字符中随机抽一个
+      }
+      return implode('',$id);
+   }
+
    //类初始化
    public function __construct() 
    {
 
    }
 
+
+   //把缺省的乘号添进去
+   // 2(3+4)  ->  2*(3+4)
+   public function checkMultiplyOmitted($strExpression)
+   {
+      $strResult="";
+      $lastOpt='';
+      for($n=0;$n<strlen($strExpression);$n++)
+      {
+         if(!$this->checkOptChar($strExpression[$n])) $lastOpt=$strExpression[$n];
+
+         if($n>0 &&  is_numeric($strExpression[$n-1]) && $this->checkOptChar($strExpression[$n]) ) 
+         {
+            if($lastOpt=="/")
+               $strResult.="/";
+            else
+               $strResult.="*";
+         }
+         $strResult.=$strExpression[$n];
+      }
+      return $strResult;
+   }
+
+   //检测当前是否需要添加乘号，防止随意添加导致解析错误
+   public function checkOptChar($opt)
+   {
+      switch($opt)
+      {
+         case '+': 
+         case '-': 
+         case '*': 
+         case '/': 
+         case ')': return 0;
+         case '(': return 1;
+         default:  return 0;
+      }
+   }
+
+   //初始化数据
+   //RPN初始化后，可以多次调用，所以表达式的初始化，没有放在类初始化里。
+   public function init($strExpression)
+   {
+      $this->_rpnexp = Array();					//初始化。此类允许通过eval多次计算不同的表达式，所以初始化就放在这里了。
+      $this->_stack = Array('#');
+      $this->strExpression = $this->checkMultiplyOmitted($strExpression);//$strExpression;	//先检查一下是否有缺失的乘
+      $this->_expression = preg_split("/(\+)|(\-)|(\*)|(\/)|(\()|(\))/",$this->strExpression,-1,PREG_SPLIT_DELIM_CAPTURE|PREG_SPLIT_NO_EMPTY);//将字符串表达式转成数组
+      $this->exp2RPN();					//转换为逆波兰表达式
+   }
+
    //0.初始化逆波兰表达式数组
    //1.将四则混合运算字符串拆分为数组（若按原算法，拆分后的操作数只能是个位数。）
    //2.将数组按逆波兰排列
    //3.计算结果
-   public function eval($strExpression)
+   public function eval()
    {
-      $this->_rpnexp = Array();					//初始化。此类允许通过eval多次计算不同的表达式，所以初始化就放在这里了。
-      $this->_stack = Array('#');
-      $this->strExpression = $strExpression;			//保存传入的字符串
-      $this->_expression = preg_split("/(\+)|(\-)|(\*)|(\/)|(\()|(\))/",$strExpression,-1,PREG_SPLIT_DELIM_CAPTURE|PREG_SPLIT_NO_EMPTY);//将字符串表达式转成数组
-      //$this->exp2RPN();					//转换为逆波兰表达式
-      return $this->evalRPN( $this->exp2RPN());			//计算逆波兰表达式，并返回计算结果
+      return $this->evalRPN( );			//计算逆波兰表达式，并返回计算结果
    }
 
    //对已拆分数组进行逆波兰处理
@@ -107,7 +165,7 @@ class RPN {
             echo "\n\nRPN:\t";print_r($this->_rpnexp);
          }
 
-         $str = $this->_expression[$i];
+         $str = trim($this->_expression[$i]);				//清理空格
          if ($str == '(')						//括号优先级最高，先检测是否有左括号出现
          {
             $nCheckParenthesis++;						//遇到左括号，加1；遇到右括号，减1
@@ -163,13 +221,14 @@ class RPN {
          $this->_rpnexp[] = array_pop($this->_stack);				//直接追加到结果数组
       }
 
-      return ( $nCheckParenthesis!=0 )?  FALSE:$this->_rpnexp;		//如果输入数据有误（比如括号不匹配，连续多个运算符叠加的情况暂时没有处理），就返回FALSE；否则返回包含逆波兰表达式数据的数组
+      if( $nCheckParenthesis!=0 ) $this->_rpnexp=  FALSE;
+      return $this->_rpnexp;						//如果输入数据有误（比如括号不匹配，连续多个运算符叠加的情况暂时没有处理），就返回FALSE；否则返回包含逆波兰表达式数据的数组
    }
 
    //获取表达式的计算结果
-   public function evalRPN($bSignal) 
+   public function evalRPN() 
    {
-      if($bSignal===FALSE)
+      if($this->_rpnexp===FALSE)
          return "括号匹配有问题。";
 
       $bFormula	= FALSE;
@@ -212,6 +271,63 @@ class RPN {
       return $this->nValue=$bFormula?FALSE:current($data);	//当输入里有无法计算的字母时，返回FALSE，否则返回计算后得到的数值。
    }
 
+   public function toScratchJSON()
+   {
+      $jsonArr=Array();
+      $data=Array();
+      $type	= Array('+','-','*','/');				//限定了只能处理这四种运算
+      if($this->_rpnexp===FALSE) return '';
+      for($i=0;$i<count($this->_rpnexp);$i++)
+      {
+
+         //print_r($data);
+         if(  $this->_rpnexp[$i]!=NULL)//数据莫名其妙地多了一个NULL，暂时屏蔽。
+         {
+            if(!in_array($this->_rpnexp[$i],$type))		//非计算符号，则认定为数字/变量
+            {
+               if(!is_numeric($this->_rpnexp[$i])) $bFormula=TRUE;
+               array_unshift($data,$this->_rpnexp[$i]);	//将数据(数字/变量)插入到数组$data的开头
+               //array_unshift($data,$this->_rpnexp[$i]);	//将数据(数字/变量)插入到数组$data的开头
+            }
+            else							//处理“+,-,*,/”
+            {
+               $val1=array_shift($data);				//获取数组$data的第一个数据，并删除
+               $val2=array_shift($data);				//获取数组$data的第一个数据，并删除
+
+               $uid=$this->uid();
+               $jsonArr[]=Array($this->_rpnexp[$i], $uid,$val2, $val1);  //opcode,uid,arg1,arg2
+
+               switch($this->_rpnexp[$i])
+               {
+                  case '+':
+                     array_unshift($data,$uid);		//将计算结果保存到数组$data的开头
+                     break;
+                  case '-':
+                     array_unshift($data,$uid);
+                     break;
+                  case '*':
+                     array_unshift($data,$uid);
+                     break;
+                  case '/':
+                     array_unshift($data,$uid);
+                     break;
+                  //default:					//由于前面if里的in_array()已经过滤了非“+,-,*,/”的情况，
+                  //   break;					//所以这里的default可以安心地去掉。
+               }
+            }
+
+
+         }
+      }
+      if(DEBUG)
+      {
+         print_r($data);
+         print_r($jsonArr);
+      }
+      return $jsonArr;
+   }
+
+
    //获取RPN数据，以数组的形式呈现
    public function getArrRPN()
    {
@@ -221,7 +337,7 @@ class RPN {
    //获取RPN数据，以字符串的形式呈现
    public function getStrRPN()
    {
-      return implode(" ",$this->_rpnexp);
+      return ($this->_rpnexp===FALSE?NULL:implode(" ",$this->_rpnexp));
    }
 
    //获取表达式的计算结果
